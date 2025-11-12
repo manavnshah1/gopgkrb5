@@ -32,6 +32,73 @@ type GSS struct {
 	settings []func(settings *client.Settings)
 }
 
+
+func NewGSSWithKrb5Path(krb5Path string) (*GSS, error) {
+	g := &GSS{}
+	err := g.initWithKrb5Path(krb5Path)
+	if err != nil {
+		return nil, err
+	}
+	return g, nil
+}
+
+
+func (g *GSS) initWithKrb5Path(ccpath string) error {
+	cfgPath, ok := os.LookupEnv("KRB5_CONFIG")
+	if !ok {
+		cfgPath = "/etc/krb5.conf"
+	}
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		return err
+	}
+
+	if err != nil {
+		return err
+	}
+
+	var cl *client.Client
+
+	// By default, we disable encryption match check
+	// Settings can be overwritten when creating GSS provider instance
+	settings := []func(settings *client.Settings){client.DisablePAFXFAST(true)}
+	if len(g.settings) != 0 {
+		settings = g.settings
+	}
+
+	// If we have keytab path set, we create client from keytab
+	// Or if we have password set, we log in by password
+	// Otherwise, we use ccache file
+	if g.ktPath != "" {
+		kt, err := keytab.Load(g.ktPath)
+		if err != nil {
+			return err
+		}
+
+		cl = client.NewWithKeytab(g.username, g.realm, kt, cfg, settings...)
+	} else if g.password != "" {
+		cl = client.NewWithPassword(g.username, g.realm, g.password, cfg, settings...)
+	} else {
+		ccache, err := credentials.LoadCCache(ccpath)
+		if err != nil {
+			return err
+		}
+
+		cl, err = client.NewFromCCache(ccache, cfg, settings...)
+		if err != nil {
+			return err
+		}
+	}
+
+	cl.Login()
+
+	g.cli = cl
+
+	return nil
+}
+
+
 // NewGSS creates a new GSS provider.
 func NewGSS(settings ...func(*client.Settings)) (*GSS, error) {
 	g := &GSS{}

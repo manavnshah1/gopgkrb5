@@ -61,3 +61,19 @@ func init() {
 
 All dependencies of [`jackc/pgconn`](https://github.com/jackc/pgconn), e.g. [`jackc/pgx`](https://github.com/jackc/pgx) will now be able to authenticate with
 GSSAPI/krb5.
+
+
+
+### Manav's modifications:
+Example usage:
+```go
+config, err := pgx.ParseConfig(*connString)
+if err != nil {
+	log.Fatalf("Failed to parse connection string: %v", err)
+}
+config.Config.NewGSS = func() (pgconn.GSS, error) {
+	return gopgkrb5.NewGSSWithKrb5Path(*krb5ccname)
+}
+```go
+
+this also needs pgx modifications made here [`github.com/manavnshah1/pgx`](github.com/manavnshah1/pgx)
